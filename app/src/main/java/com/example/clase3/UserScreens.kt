@@ -13,7 +13,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -26,7 +25,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -36,8 +34,6 @@ import coil.compose.AsyncImage
 import com.example.clase3.ui.theme.DarkBlue
 import com.example.clase3.ui.theme.White
 import kotlinx.coroutines.delay
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import java.io.File
 import java.io.FileOutputStream
 
@@ -231,7 +227,6 @@ fun AddEditUserScreen(navController: NavController, userId: Int, viewModel: User
 @Composable
 fun UserDetailScreen(navController: NavController, userId: Int, viewModel: UserViewModel = viewModel()) {
     var user by remember { mutableStateOf<User?>(null) }
-    val json = remember(user) { if (user != null) Json { prettyPrint = true }.encodeToString(user) else "" }
 
     LaunchedEffect(userId) { user = viewModel.getUserById(userId) }
 
@@ -251,30 +246,63 @@ fun UserDetailScreen(navController: NavController, userId: Int, viewModel: UserV
     ) { padding ->
         user?.let { u ->
             Column(
-                modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(24.dp)
+                    .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                AsyncImage(model = u.imageUri, contentDescription = null, modifier = Modifier.size(150.dp).clip(CircleShape).background(Color.LightGray), contentScale = ContentScale.Crop)
-                Spacer(modifier = Modifier.height(24.dp))
-                Text(text = "${u.firstName} ${u.lastName}", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = DarkBlue)
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(text = "Legajo: ${u.fileNumber}", fontSize = 20.sp, color = DarkBlue)
-                Text(text = "DNI: ${u.dni}", fontSize = 20.sp, color = DarkBlue)
+                // Foto circular grande
+                AsyncImage(
+                    model = u.imageUri,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(180.dp)
+                        .clip(CircleShape)
+                        .background(Color.LightGray),
+                    contentScale = ContentScale.Crop
+                )
                 
                 Spacer(modifier = Modifier.height(32.dp))
-                HorizontalDivider(color = DarkBlue.copy(alpha = 0.1f))
-                Spacer(modifier = Modifier.height(16.dp))
                 
-                Text(text = "Información JSON:", modifier = Modifier.align(Alignment.Start), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = DarkBlue)
-                Surface(
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                    color = Color.LightGray.copy(alpha = 0.2f),
-                    shape = RoundedCornerShape(8.dp)
+                // Card con la información detallada
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = White),
+                    border = BorderStroke(1.dp, DarkBlue.copy(alpha = 0.1f))
                 ) {
-                    Text(text = json, modifier = Modifier.padding(12.dp), fontSize = 12.sp, fontFamily = FontFamily.Monospace, color = DarkBlue)
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        DetailRow(label = "Nombre", value = u.firstName)
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), thickness = 0.5.dp, color = Color.LightGray)
+                        DetailRow(label = "Apellido", value = u.lastName)
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), thickness = 0.5.dp, color = Color.LightGray)
+                        DetailRow(label = "Legajo", value = u.fileNumber)
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), thickness = 0.5.dp, color = Color.LightGray)
+                        DetailRow(label = "DNI", value = u.dni)
+                    }
                 }
             }
         }
+    }
+}
+
+@Composable
+fun DetailRow(label: String, value: String) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = label,
+            fontSize = 14.sp,
+            color = Color.Gray,
+            fontWeight = FontWeight.Medium
+        )
+        Text(
+            text = value,
+            fontSize = 20.sp,
+            color = DarkBlue,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(top = 2.dp)
+        )
     }
 }
 
