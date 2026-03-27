@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -37,19 +38,21 @@ import kotlinx.coroutines.delay
 import java.io.File
 import java.io.FileOutputStream
 
+// 1. PANTALLA DE BIENVENIDA (SPLASH)
 @Composable
 fun SplashScreen(navController: NavController) {
-    LaunchedEffect(key1 = true) {
-        delay(2000)
+    // El LaunchedEffect sirve para ejecutar algo apenas se abre la pantalla
+    LaunchedEffect(Unit) {
+        delay(2000) // Esperamos 2 segundos (2000 milisegundos)
+        // Navegamos a la lista y borramos el Splash del historial
         navController.navigate("user_list") {
             popUpTo("splash") { inclusive = true }
         }
     }
 
+    // Diseño centrado con fondo azul
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(DarkBlue),
+        modifier = Modifier.fillMaxSize().background(DarkBlue),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -60,10 +63,12 @@ fun SplashScreen(navController: NavController) {
     }
 }
 
+// 2. PANTALLA DE LISTA DE USUARIOS
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UserListScreen(navController: NavController, viewModel: UserViewModel = viewModel()) {
-    val users by viewModel.allUsers.collectAsState(initial = emptyList())
+    // Observamos la lista de usuarios que viene de la base de datos
+    val listaUsuarios by viewModel.allUsers.collectAsState(initial = emptyList())
 
     Scaffold(
         topBar = {
@@ -73,37 +78,34 @@ fun UserListScreen(navController: NavController, viewModel: UserViewModel = view
             )
         },
         floatingActionButton = {
+            // Botón flotante para ir a la pantalla de crear nuevo (-1 significa nuevo)
             FloatingActionButton(
                 onClick = { navController.navigate("add_edit_user/-1") },
                 containerColor = DarkBlue,
                 contentColor = White
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Agregar Usuario")
+                Icon(Icons.Default.Add, contentDescription = "Agregar")
             }
-        },
-        containerColor = White
+        }
     ) { padding ->
-        if (users.isEmpty()) {
+        // Si no hay usuarios, mostramos un mensaje
+        if (listaUsuarios.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                 Text("No hay usuarios registrados", color = DarkBlue)
             }
         } else {
+            // Si hay, los mostramos en una columna que permite scroll automático
             LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(
-                    top = padding.calculateTopPadding() + 8.dp,
-                    bottom = 80.dp,
-                    start = 8.dp,
-                    end = 8.dp
-                ),
+                modifier = Modifier.fillMaxSize().padding(padding),
+                contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(users, key = { it.id }) { user ->
+                items(listaUsuarios) { usuario ->
                     UserItem(
-                        user = user,
-                        onDetail = { navController.navigate("user_detail/${user.id}") },
-                        onEdit = { navController.navigate("add_edit_user/${user.id}") },
-                        onDelete = { viewModel.delete(user) }
+                        user = usuario,
+                        onDetail = { navController.navigate("user_detail/${usuario.id}") },
+                        onEdit = { navController.navigate("add_edit_user/${usuario.id}") },
+                        onDelete = { viewModel.delete(usuario) }
                     )
                 }
             }
@@ -111,63 +113,71 @@ fun UserListScreen(navController: NavController, viewModel: UserViewModel = view
     }
 }
 
+// COMPONENTE PARA CADA RENGLÓN DE LA LISTA
 @Composable
 fun UserItem(user: User, onDetail: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = White, contentColor = DarkBlue),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        border = BorderStroke(1.dp, DarkBlue.copy(alpha = 0.1f))
+        colors = CardDefaults.cardColors(containerColor = White),
+        border = BorderStroke(1.dp, Color.LightGray)
     ) {
         Row(
             modifier = Modifier.padding(12.dp).fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Foto circular
             AsyncImage(
                 model = user.imageUri,
                 contentDescription = null,
-                modifier = Modifier.size(60.dp).clip(CircleShape).background(Color.LightGray),
+                modifier = Modifier.size(50.dp).clip(CircleShape).background(Color.LightGray),
                 contentScale = ContentScale.Crop
             )
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = "${user.firstName} ${user.lastName}", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Text(text = "Legajo: ${user.fileNumber}", fontSize = 14.sp)
+                Text(text = user.firstName + " " + user.lastName, fontWeight = FontWeight.Bold)
+                Text(text = "DNI: " + user.dni, fontSize = 12.sp)
             }
-            Row {
-                IconButton(onClick = onDetail) { Icon(Icons.Default.Info, null, tint = DarkBlue) }
-                IconButton(onClick = onEdit) { Icon(Icons.Default.Edit, null, tint = DarkBlue) }
-                IconButton(onClick = onDelete) { Icon(Icons.Default.Delete, null, tint = Color.Red) }
-            }
+            // Botones de acción
+            IconButton(onClick = onDetail) { Icon(Icons.Default.Info, null, tint = DarkBlue) }
+            IconButton(onClick = onEdit) { Icon(Icons.Default.Edit, null, tint = DarkBlue) }
+            IconButton(onClick = onDelete) { Icon(Icons.Default.Delete, null, tint = Color.Red) }
         }
     }
 }
 
+// 3. PANTALLA PARA AGREGAR O EDITAR
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddEditUserScreen(navController: NavController, userId: Int, viewModel: UserViewModel = viewModel()) {
     val context = LocalContext.current
-    var firstName by remember { mutableStateOf("") }
-    var lastName by remember { mutableStateOf("") }
-    var fileNumber by remember { mutableStateOf("") }
+    
+    // Variables para guardar lo que el usuario escribe
+    var nombre by remember { mutableStateOf("") }
+    var apellido by remember { mutableStateOf("") }
+    var legajo by remember { mutableStateOf("") }
     var dni by remember { mutableStateOf("") }
-    var imageUri by remember { mutableStateOf<String?>(null) }
+    var fotoUri by remember { mutableStateOf<String?>(null) }
 
-    val photoPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickVisualMedia(),
-        onResult = { uri ->
-            uri?.let { imageUri = saveImageToInternalStorage(context, it) }
+    // Herramienta para abrir la galería de fotos
+    val selectorFotos = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            // Si eligió una foto, la guardamos internamente en la app
+            fotoUri = guardarFotoEnApp(context, uri)
         }
-    )
+    }
 
+    // Si estamos editando (ID distinto a -1), cargamos los datos actuales
     LaunchedEffect(userId) {
         if (userId != -1) {
-            viewModel.getUserById(userId)?.let {
-                firstName = it.firstName
-                lastName = it.lastName
-                fileNumber = it.fileNumber
-                dni = it.dni
-                imageUri = it.imageUri
+            val usuarioExistente = viewModel.getUserById(userId)
+            if (usuarioExistente != null) {
+                nombre = usuarioExistente.firstName
+                apellido = usuarioExistente.lastName
+                legajo = usuarioExistente.fileNumber
+                dni = usuarioExistente.dni
+                fotoUri = usuarioExistente.imageUri
             }
         }
     }
@@ -183,52 +193,75 @@ fun AddEditUserScreen(navController: NavController, userId: Int, viewModel: User
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBlue)
             )
-        },
-        containerColor = White
+        }
     ) { padding ->
         Column(
             modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // Click en el círculo para cambiar foto
             Box(
-                modifier = Modifier.size(120.dp).clip(CircleShape).background(Color.LightGray)
-                    .clickable { photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                modifier = Modifier.size(100.dp).clip(CircleShape).background(Color.LightGray)
+                    .clickable { selectorFotos.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
                 contentAlignment = Alignment.Center
             ) {
-                if (imageUri != null) {
-                    AsyncImage(model = imageUri, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                if (fotoUri != null) {
+                    AsyncImage(model = fotoUri, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                 } else {
-                    Icon(Icons.Default.PersonAdd, null, modifier = Modifier.size(48.dp), tint = DarkBlue)
+                    Icon(Icons.Default.CameraAlt, null, tint = DarkBlue)
                 }
             }
-            Spacer(modifier = Modifier.height(24.dp))
-            OutlinedTextField(value = firstName, onValueChange = { firstName = it }, label = { Text("Nombre") }, modifier = Modifier.fillMaxWidth())
+            
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Campos de texto simples
+            OutlinedTextField(value = nombre, onValueChange = { nombre = it }, label = { Text("Nombre") }, modifier = Modifier.fillMaxWidth())
             Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(value = lastName, onValueChange = { lastName = it }, label = { Text("Apellido") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(value = apellido, onValueChange = { apellido = it }, label = { Text("Apellido") }, modifier = Modifier.fillMaxWidth())
             Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(value = fileNumber, onValueChange = { fileNumber = it }, label = { Text("Legajo") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(value = legajo, onValueChange = { legajo = it }, label = { Text("Legajo") }, modifier = Modifier.fillMaxWidth())
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(value = dni, onValueChange = { dni = it }, label = { Text("DNI") }, modifier = Modifier.fillMaxWidth())
-            Spacer(modifier = Modifier.height(24.dp))
+            
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Botón de Guardar
             Button(
                 onClick = {
-                    val u = User(if (userId == -1) 0 else userId, firstName, lastName, fileNumber, dni, imageUri)
-                    if (userId == -1) viewModel.insert(u) else viewModel.update(u)
-                    navController.popBackStack()
+                    val nuevoUsuario = User(
+                        id = if (userId == -1) 0 else userId,
+                        firstName = nombre,
+                        lastName = apellido,
+                        fileNumber = legajo,
+                        dni = dni,
+                        imageUri = fotoUri
+                    )
+                    
+                    if (userId == -1) {
+                        viewModel.insert(nuevoUsuario)
+                    } else {
+                        viewModel.update(nuevoUsuario)
+                    }
+                    navController.popBackStack() // Volver atrás
                 },
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = DarkBlue, contentColor = White)
-            ) { Text("Guardar Usuario") }
+                colors = ButtonDefaults.buttonColors(containerColor = DarkBlue)
+            ) {
+                Text("GUARDAR DATOS", color = White)
+            }
         }
     }
 }
 
+// 4. PANTALLA DE DETALLE
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UserDetailScreen(navController: NavController, userId: Int, viewModel: UserViewModel = viewModel()) {
-    var user by remember { mutableStateOf<User?>(null) }
+    var usuario by remember { mutableStateOf<User?>(null) }
 
-    LaunchedEffect(userId) { user = viewModel.getUserById(userId) }
+    LaunchedEffect(userId) {
+        usuario = viewModel.getUserById(userId)
+    }
 
     Scaffold(
         topBar = {
@@ -241,74 +274,51 @@ fun UserDetailScreen(navController: NavController, userId: Int, viewModel: UserV
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBlue)
             )
-        },
-        containerColor = White
+        }
     ) { padding ->
-        user?.let { u ->
+        val u = usuario
+        if (u != null) {
             Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(24.dp)
-                    .verticalScroll(rememberScrollState()),
+                modifier = Modifier.fillMaxSize().padding(padding).padding(20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Foto circular grande
                 AsyncImage(
                     model = u.imageUri,
                     contentDescription = null,
-                    modifier = Modifier
-                        .size(180.dp)
-                        .clip(CircleShape)
-                        .background(Color.LightGray),
+                    modifier = Modifier.size(150.dp).clip(CircleShape).background(Color.LightGray),
                     contentScale = ContentScale.Crop
                 )
+                Spacer(modifier = Modifier.height(20.dp))
                 
-                Spacer(modifier = Modifier.height(32.dp))
-                
-                // Card con la información detallada
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = White),
-                    border = BorderStroke(1.dp, DarkBlue.copy(alpha = 0.1f))
-                ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
-                        DetailRow(label = "Nombre", value = u.firstName)
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), thickness = 0.5.dp, color = Color.LightGray)
-                        DetailRow(label = "Apellido", value = u.lastName)
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), thickness = 0.5.dp, color = Color.LightGray)
-                        DetailRow(label = "Legajo", value = u.fileNumber)
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), thickness = 0.5.dp, color = Color.LightGray)
-                        DetailRow(label = "DNI", value = u.dni)
-                    }
-                }
+                // Usamos un componente simple para cada renglón
+                RenglonDetalle("Nombre completo:", u.firstName + " " + u.lastName)
+                RenglonDetalle("Legajo personal:", u.fileNumber)
+                RenglonDetalle("DNI:", u.dni)
             }
         }
     }
 }
 
 @Composable
-fun DetailRow(label: String, value: String) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            text = label,
-            fontSize = 14.sp,
-            color = Color.Gray,
-            fontWeight = FontWeight.Medium
-        )
-        Text(
-            text = value,
-            fontSize = 20.sp,
-            color = DarkBlue,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(top = 2.dp)
-        )
+fun RenglonDetalle(titulo: String, valor: String) {
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        Text(text = titulo, fontSize = 12.sp, color = Color.Gray)
+        Text(text = valor, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = DarkBlue)
+        HorizontalDivider(modifier = Modifier.padding(top = 4.dp), color = Color.LightGray)
     }
 }
 
-fun saveImageToInternalStorage(context: Context, uri: Uri): String {
-    val inputStream = context.contentResolver.openInputStream(uri)
-    val file = File(context.filesDir, "user_${System.currentTimeMillis()}.jpg")
-    inputStream?.use { input -> FileOutputStream(file).use { output -> input.copyTo(output) } }
-    return file.absolutePath
+// FUNCIÓN AUXILIAR PARA GUARDAR LA FOTO
+fun guardarFotoEnApp(context: Context, uriFoto: Uri): String {
+    val streamEntrada = context.contentResolver.openInputStream(uriFoto)
+    val nombreArchivo = "foto_" + System.currentTimeMillis() + ".jpg"
+    val archivoDestino = File(context.filesDir, nombreArchivo)
+    val streamSalida = FileOutputStream(archivoDestino)
+    
+    streamEntrada?.use { entrada ->
+        streamSalida.use { salida ->
+            entrada.copyTo(salida)
+        }
+    }
+    return archivoDestino.absolutePath
 }
