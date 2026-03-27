@@ -27,23 +27,26 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
-    NavHost(navController = navController, startDestination = "product_list") {
-        composable("product_list") {
-            ProductListScreen(navController)
+    NavHost(navController = navController, startDestination = "splash") {
+        composable("splash") {
+            SplashScreen(navController)
+        }
+        composable("user_list") {
+            UserListScreen(navController)
         }
         composable(
-            route = "add_edit_product/{productId}",
-            arguments = listOf(navArgument("productId") { type = NavType.IntType })
+            route = "add_edit_user/{userId}",
+            arguments = listOf(navArgument("userId") { type = NavType.IntType })
         ) { backStackEntry ->
-            val productId = backStackEntry.arguments?.getInt("productId") ?: -1
-            AddEditProductScreen(navController, productId)
+            val userId = backStackEntry.arguments?.getInt("userId") ?: -1
+            AddEditUserScreen(navController, userId)
         }
         composable(
-            route = "product_detail/{productId}",
-            arguments = listOf(navArgument("productId") { type = NavType.IntType })
+            route = "user_detail/{userId}",
+            arguments = listOf(navArgument("userId") { type = NavType.IntType })
         ) { backStackEntry ->
-            val productId = backStackEntry.arguments?.getInt("productId") ?: -1
-            ProductDetailScreen(navController, productId)
+            val userId = backStackEntry.arguments?.getInt("userId") ?: -1
+            UserDetailScreen(navController, userId)
         }
     }
 }
