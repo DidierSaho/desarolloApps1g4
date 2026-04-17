@@ -1,5 +1,6 @@
 package com.example.clase3
 
+import android.app.Activity // Importante para poder cerrar la app
 import android.content.Context
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -41,16 +42,13 @@ import java.io.FileOutputStream
 // 1. PANTALLA DE BIENVENIDA (SPLASH)
 @Composable
 fun SplashScreen(navController: NavController) {
-    // El LaunchedEffect sirve para ejecutar algo apenas se abre la pantalla
     LaunchedEffect(Unit) {
-        delay(2000) // Esperamos 2 segundos (2000 milisegundos)
-        // Navegamos a la lista y borramos el Splash del historial
+        delay(2000) 
         navController.navigate("user_list") {
             popUpTo("splash") { inclusive = true }
         }
     }
 
-    // Diseño centrado con fondo azul
     Box(
         modifier = Modifier.fillMaxSize().background(DarkBlue),
         contentAlignment = Alignment.Center
@@ -67,18 +65,49 @@ fun SplashScreen(navController: NavController) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UserListScreen(navController: NavController, viewModel: UserViewModel = viewModel()) {
-    // Observamos la lista de usuarios que viene de la base de datos
     val listaUsuarios by viewModel.allUsers.collectAsState(initial = emptyList())
-
+    val context = LocalContext.current // Necesitamos el context para cerrar la app
+    
+    // Estado para controlar si el menú de opciones está abierto o cerrado
+    var mostrarMenu by remember { mutableStateOf(false) }
+    var mostrarModalIntegrantes by remember { mutableStateOf(false) }
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Gestión de Usuarios", color = White) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBlue)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBlue),
+                // "actions" son los botones que aparecen a la derecha en la barra superior
+                actions = {
+                    // Botón de los tres puntitos
+                    IconButton(onClick = { mostrarMenu = true }) {
+                        Icon(Icons.Default.MoreVert, contentDescription = "Opciones", tint = White)
+                    }
+                    
+                    // Menú que se despliega
+                    DropdownMenu(
+                        expanded = mostrarMenu,
+                        onDismissRequest = { mostrarMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Salir de la App") },
+                            onClick = { 
+                                mostrarMenu = false
+                                // Cerramos la actividad actual para salir de la app
+                                (context as? Activity)?.finish()
+                            },
+                            leadingIcon = { Icon(Icons.Default.ExitToApp, contentDescription = null) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Integrantes del equipo") },
+                            onClick = { mostrarMenu = false
+                                      mostrarModalIntegrantes= true},
+                            leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) }
+                        )
+                    }
+                }
             )
         },
         floatingActionButton = {
-            // Botón flotante para ir a la pantalla de crear nuevo (-1 significa nuevo)
             FloatingActionButton(
                 onClick = { navController.navigate("add_edit_user/-1") },
                 containerColor = DarkBlue,
@@ -88,13 +117,11 @@ fun UserListScreen(navController: NavController, viewModel: UserViewModel = view
             }
         }
     ) { padding ->
-        // Si no hay usuarios, mostramos un mensaje
         if (listaUsuarios.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                 Text("No hay usuarios registrados", color = DarkBlue)
             }
         } else {
-            // Si hay, los mostramos en una columna que permite scroll automático
             LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(padding),
                 contentPadding = PaddingValues(16.dp),
@@ -110,10 +137,34 @@ fun UserListScreen(navController: NavController, viewModel: UserViewModel = view
                 }
             }
         }
+
+
+    }
+    if (mostrarModalIntegrantes) {
+        val integrantes = listOf("Garcia Lautaro", "Romero Matias", "Sahonero Didier", "Valentini Tiago")
+
+        AlertDialog(
+            onDismissRequest = { mostrarModalIntegrantes = false }, // Se cierra si tocan afuera
+            title = { Text("Quienes somos") },
+            text = {
+                // Usamos una Column para poner un nombre debajo del otro
+                Column {
+                    for (nombre in integrantes) {
+                        Text(text = nombre, modifier = Modifier.padding(vertical = 4.dp))
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { mostrarModalIntegrantes = false }) {
+                    Text("Cerrar", color = DarkBlue)
+                }
+            }
+        )
     }
 }
 
-// COMPONENTE PARA CADA RENGLÓN DE LA LISTA
+
+
 @Composable
 fun UserItem(user: User, onDetail: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit) {
     Card(
@@ -125,7 +176,6 @@ fun UserItem(user: User, onDetail: () -> Unit, onEdit: () -> Unit, onDelete: () 
             modifier = Modifier.padding(12.dp).fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Foto circular
             AsyncImage(
                 model = user.imageUri,
                 contentDescription = null,
@@ -137,7 +187,6 @@ fun UserItem(user: User, onDetail: () -> Unit, onEdit: () -> Unit, onDelete: () 
                 Text(text = user.firstName + " " + user.lastName, fontWeight = FontWeight.Bold)
                 Text(text = "DNI: " + user.dni, fontSize = 12.sp)
             }
-            // Botones de acción
             IconButton(onClick = onDetail) { Icon(Icons.Default.Info, null, tint = DarkBlue) }
             IconButton(onClick = onEdit) { Icon(Icons.Default.Edit, null, tint = DarkBlue) }
             IconButton(onClick = onDelete) { Icon(Icons.Default.Delete, null, tint = Color.Red) }
@@ -158,17 +207,18 @@ fun AddEditUserScreen(navController: NavController, userId: Int, viewModel: User
     var dni by remember { mutableStateOf("") }
     var fotoUri by remember { mutableStateOf<String?>(null) }
 
-    // Herramienta para abrir la galería de fotos
+    // --- NUEVAS VARIABLES PARA EL MODAL DE ERROR ---
+    var mostrarModalError by remember { mutableStateOf(false) }
+    var mensajeDeError by remember { mutableStateOf("") }
+
     val selectorFotos = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
         if (uri != null) {
-            // Si eligió una foto, la guardamos internamente en la app
             fotoUri = guardarFotoEnApp(context, uri)
         }
     }
 
-    // Si estamos editando (ID distinto a -1), cargamos los datos actuales
     LaunchedEffect(userId) {
         if (userId != -1) {
             val usuarioExistente = viewModel.getUserById(userId)
@@ -214,7 +264,6 @@ fun AddEditUserScreen(navController: NavController, userId: Int, viewModel: User
             
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Campos de texto simples
             OutlinedTextField(value = nombre, onValueChange = { nombre = it }, label = { Text("Nombre") }, modifier = Modifier.fillMaxWidth())
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedTextField(value = apellido, onValueChange = { apellido = it }, label = { Text("Apellido") }, modifier = Modifier.fillMaxWidth())
@@ -225,24 +274,37 @@ fun AddEditUserScreen(navController: NavController, userId: Int, viewModel: User
             
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Botón de Guardar
+            // Botón de Guardar con validaciones
             Button(
                 onClick = {
-                    val nuevoUsuario = User(
-                        id = if (userId == -1) 0 else userId,
-                        firstName = nombre,
-                        lastName = apellido,
-                        fileNumber = legajo,
-                        dni = dni,
-                        imageUri = fotoUri
-                    )
-                    
-                    if (userId == -1) {
-                        viewModel.insert(nuevoUsuario)
+                    // --- LÓGICA DE VALIDACIÓN ---
+                    if (nombre.isBlank() && legajo.isBlank()) {
+                        mensajeDeError = "Faltan completar el nombre y el legajo."
+                        mostrarModalError = true
+                    } else if (nombre.isBlank()) {
+                        mensajeDeError = "Te falta completar el nombre."
+                        mostrarModalError = true
+                    } else if (legajo.isBlank()) {
+                        mensajeDeError = "Te falta completar el legajo."
+                        mostrarModalError = true
                     } else {
-                        viewModel.update(nuevoUsuario)
+                        // Si todo está bien, guardamos
+                        val nuevoUsuario = User(
+                            id = if (userId == -1) 0 else userId,
+                            firstName = nombre,
+                            lastName = apellido,
+                            fileNumber = legajo,
+                            dni = dni,
+                            imageUri = fotoUri
+                        )
+                        
+                        if (userId == -1) {
+                            viewModel.insert(nuevoUsuario)
+                        } else {
+                            viewModel.update(nuevoUsuario)
+                        }
+                        navController.popBackStack()
                     }
-                    navController.popBackStack() // Volver atrás
                 },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = DarkBlue)
@@ -250,6 +312,23 @@ fun AddEditUserScreen(navController: NavController, userId: Int, viewModel: User
                 Text("GUARDAR DATOS", color = White)
             }
         }
+    }
+
+    // --- EL MODAL (DIÁLOGO) DE ERROR ---
+    if (mostrarModalError) {
+        AlertDialog(
+            onDismissRequest = { mostrarModalError = false },
+            title = { Text("Datos incompletos") },
+            text = { Text(mensajeDeError) },
+            confirmButton = {
+                Button(
+                    onClick = { mostrarModalError = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = DarkBlue)
+                ) {
+                    Text("Entendido")
+                }
+            }
+        )
     }
 }
 
@@ -279,7 +358,7 @@ fun UserDetailScreen(navController: NavController, userId: Int, viewModel: UserV
         val u = usuario
         if (u != null) {
             Column(
-                modifier = Modifier.fillMaxSize().padding(padding).padding(20.dp),
+                modifier = Modifier.fillMaxSize().padding(padding).padding(20.dp).verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 AsyncImage(
@@ -290,7 +369,6 @@ fun UserDetailScreen(navController: NavController, userId: Int, viewModel: UserV
                 )
                 Spacer(modifier = Modifier.height(20.dp))
                 
-                // Usamos un componente simple para cada renglón
                 RenglonDetalle("Nombre completo:", u.firstName + " " + u.lastName)
                 RenglonDetalle("Legajo personal:", u.fileNumber)
                 RenglonDetalle("DNI:", u.dni)
@@ -308,7 +386,6 @@ fun RenglonDetalle(titulo: String, valor: String) {
     }
 }
 
-// FUNCIÓN AUXILIAR PARA GUARDAR LA FOTO
 fun guardarFotoEnApp(context: Context, uriFoto: Uri): String {
     val streamEntrada = context.contentResolver.openInputStream(uriFoto)
     val nombreArchivo = "foto_" + System.currentTimeMillis() + ".jpg"
