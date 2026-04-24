@@ -113,8 +113,10 @@ fun UserListScreen(navController: NavController, viewModel: UserViewModel = view
                 containerColor = DarkBlue,
                 contentColor = White
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Agregar")
+                ///Icon(Icons.Default.Add, contentDescription = "Agregar")
+                Text("Agregar")
             }
+
         }
     ) { padding ->
         if (listaUsuarios.isEmpty()) {
@@ -309,7 +311,7 @@ fun AddEditUserScreen(navController: NavController, userId: Int, viewModel: User
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = DarkBlue)
             ) {
-                Text("GUARDAR DATOS", color = White)
+                Text("Registrar Datos", color = White)
             }
         }
     }
